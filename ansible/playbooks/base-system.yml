@@ -1,0 +1,39 @@
+---
+- name: Configurer le socle systeme OVH
+  hosts: ovh
+  become: true
+
+  tasks:
+    - name: Mettre a jour le cache APT
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Installer les paquets de base
+      ansible.builtin.apt:
+        name:
+          - curl
+          - git
+          - htop
+          - ufw
+          - ca-certificates
+        state: present
+
+    - name: Supprimer l'ancienne autorisation SSH generale
+      community.general.ufw:
+        rule: allow
+        delete: true
+        port: "22"
+        proto: tcp
+
+    - name: Autoriser SSH depuis le poste admin
+      community.general.ufw:
+        rule: allow
+        from_ip: "{{ admin_ssh_cidr }}"
+        port: "22"
+        proto: tcp
+
+    - name: Activer le pare-feu
+      community.general.ufw:
+        state: enabled
+        policy: deny
