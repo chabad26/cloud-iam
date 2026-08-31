@@ -22,3 +22,18 @@ output "ssh_connection_hint" {
   description = "Commande SSH indicative a utiliser apres le deploiement."
   value       = "ssh ${var.ssh_user}@${openstack_compute_instance_v2.prototype.access_ip_v4}"
 }
+
+output "small_instance_ids" {
+  description = "Identifiants OpenStack des VM de services secondaires."
+  value       = openstack_compute_instance_v2.small[*].id
+}
+
+output "small_instance_names" {
+  description = "Noms des VM de services secondaires."
+  value       = openstack_compute_instance_v2.small[*].name
+}
+
+output "small_instance_ipv4s" {
+  description = "Adresses IPv4 publiques des VM de services secondaires."
+  value       = openstack_compute_instance_v2.small[*].access_ip_v4
+}

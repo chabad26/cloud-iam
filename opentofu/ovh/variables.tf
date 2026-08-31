@@ -16,6 +16,21 @@ variable "flavor_name" {
   default     = "d2-4"
 }
 
+variable "small_instance_names" {
+  description = "Noms des deux VM de services secondaires."
+  type        = list(string)
+  default = [
+    "d2-2-2026_08_31-01",
+    "d2-2-2026_08_31-02",
+  ]
+}
+
+variable "small_flavor_name" {
+  description = "Modele des VM de services secondaires."
+  type        = string
+  default     = "d2-2"
+}
+
 variable "image_name" {
   description = "Image systeme disponible dans la region cible."
   type        = string
