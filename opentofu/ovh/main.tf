@@ -39,25 +39,3 @@ resource "openstack_compute_instance_v2" "prototype" {
     }
   }
 }
-
-resource "openstack_compute_instance_v2" "small" {
-  count           = length(var.small_instance_names)
-  name            = var.small_instance_names[count.index]
-  image_name      = var.image_name
-  flavor_name     = var.small_flavor_name
-  key_pair        = openstack_compute_keypair_v2.admin.name
-  security_groups = ["default"]
-  region          = var.region
-
-  network {
-    name = var.public_network_name
-  }
-
-  dynamic "network" {
-    for_each = var.private_network_name == null ? [] : [var.private_network_name]
-
-    content {
-      name = network.value
-    }
-  }
-}
