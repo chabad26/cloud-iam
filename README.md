@@ -1,6 +1,6 @@
 # Cloud IAM
 
-Patrons de travail pour le prototype Cloud/IAM OVHcloud.
+Patrons de travail pour le prototype Cloud/IAM OVHcloud et Infomaniak.
 
 Les instances OVHcloud Public Cloud sont pilotées par l'API OpenStack du projet.
 Le dossier `opentofu/ovh/` utilise donc le provider OpenStack, avec les
@@ -12,6 +12,11 @@ variables `OS_*` fournies par le fichier OpenRC OVHcloud.
 cloud-iam/
 ├── opentofu/
 │   └── ovh/
+│       ├── main.tf
+│       ├── variables.tf
+│       ├── outputs.tf
+│       └── terraform.tfvars.example
+│   └── infomaniak/
 │       ├── main.tf
 │       ├── variables.tf
 │       ├── outputs.tf
@@ -50,6 +55,10 @@ tofu plan
 
 Le `plan` nécessite un fichier local `terraform.tfvars` ou des variables
 d'environnement contenant les valeurs réelles du projet OVHcloud.
+
+Pour Infomaniak, utiliser `opentofu/infomaniak/` et le profil
+`clouds.yaml` téléchargé depuis le Manager. Le fichier doit être placé dans
+`~/.config/openstack/clouds.yaml` et ne doit pas être versionné.
 
 Exemple de préparation côté terminal :
 

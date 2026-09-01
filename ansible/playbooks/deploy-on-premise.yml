@@ -55,6 +55,7 @@
         mode: "0750"
 
     - name: Creer le reseau et les volumes OpenLDAP
+      become: true
       ansible.builtin.shell: |
         set -eu
         docker network inspect openldap_default >/dev/null 2>&1 || docker network create openldap_default
@@ -66,17 +67,20 @@
         creates: /var/lib/docker/volumes/openldap_ldap_data
 
     - name: Installer les certificats TLS OpenLDAP dans le volume
+      become: true
       ansible.builtin.command:
         cmd: ./prepare-openldap-tls.sh
         chdir: "{{ on_premise_target }}/infrastructure-compose"
 
     - name: Demarrer OpenLDAP et LAM
+      become: true
       community.docker.docker_compose_v2:
         project_src: "{{ on_premise_target }}/infrastructure-compose"
         state: present
         build: always
 
     - name: Demarrer la supervision
+      become: true
       community.docker.docker_compose_v2:
         project_src: "{{ on_premise_target }}/monitoring-compose"
         state: present
@@ -88,7 +92,8 @@
   vars:
     on_premise_source: /home/oliv/on-premise
     on_premise_target: /home/ubuntu/on-premise
-    ldap_private_ip: 10.42.10.123
+    ldap_private_ip: "{{ hostvars[groups['directory'][0]].private_ip }}"
+    compose_override_filename: "{{ cloud_compose_override | default('compose.ovh.yaml') }}"
   tasks:
     - name: Creer le repertoire cible
       ansible.builtin.file:
@@ -110,7 +115,7 @@
 
     - name: Ajouter la resolution LDAP privee a Samba
       ansible.builtin.copy:
-        dest: "{{ on_premise_target }}/samba-ad/compose.ovh.yaml"
+        dest: "{{ on_premise_target }}/samba-ad/{{ compose_override_filename }}"
         mode: "0644"
         content: |
           services:
@@ -119,13 +124,14 @@
                 - "openldap:{{ ldap_private_ip }}"
 
     - name: Creer le reseau externe attendu par Samba
+      become: true
       ansible.builtin.command:
         cmd: docker network create openldap_default
       register: samba_network
       changed_when: samba_network.rc == 0
       failed_when: samba_network.rc != 0 and 'already exists' not in samba_network.stderr
 
-    - name: Ecouter Samba sur les interfaces OVH
+    - name: Ecouter Samba sur toutes les interfaces cloud
       ansible.builtin.lineinfile:
         path: "{{ on_premise_target }}/samba-ad/.env"
         regexp: '^HOSTIP='
@@ -143,7 +149,18 @@
         - "{{ on_premise_target }}/samba-ad/config/nslcd.conf.template"
         - "{{ on_premise_target }}/samba-ad/entrypoint.sh"
 
+    - name: Construire l'image Samba avant l'adaptation persistante
+      become: true
+      community.docker.docker_compose_v2:
+        project_src: "{{ on_premise_target }}/samba-ad"
+        files:
+          - compose.yaml
+          - "{{ compose_override_filename }}"
+        state: present
+        build: always
+
     - name: Adapter la configuration persistante Samba
+      become: true
       ansible.builtin.command:
         cmd: >-
           docker run --rm
@@ -154,15 +171,17 @@
       changed_when: true
 
     - name: Construire et demarrer Samba
+      become: true
       community.docker.docker_compose_v2:
         project_src: "{{ on_premise_target }}/samba-ad"
         files:
           - compose.yaml
-          - compose.ovh.yaml
+          - "{{ compose_override_filename }}"
         state: present
         build: always
 
     - name: Demarrer WordPress
+      become: true
       community.docker.docker_compose_v2:
         project_src: "{{ on_premise_target }}/wordpress-compose"
         state: present
@@ -174,7 +193,9 @@
   vars:
     on_premise_source: /home/oliv/on-premise
     on_premise_target: /home/ubuntu/on-premise
-    ldap_private_ip: 10.42.10.123
+    ldap_private_ip: "{{ hostvars[groups['directory'][0]].private_ip }}"
+    files_private_ip: "{{ hostvars[groups['files'][0]].private_ip }}"
+    compose_override_filename: "{{ cloud_compose_override | default('compose.ovh.yaml') }}"
   tasks:
     - name: Creer le repertoire cible
       ansible.builtin.file:
@@ -210,7 +231,7 @@
 
     - name: Ajouter la resolution LDAP privee a la messagerie
       ansible.builtin.copy:
-        dest: "{{ on_premise_target }}/messaging-compose/compose.ovh.yaml"
+        dest: "{{ on_premise_target }}/messaging-compose/{{ compose_override_filename }}"
         mode: "0644"
         content: |
           services:
@@ -241,10 +262,11 @@
     - name: Retablir les ports mail publies par Docker
       ansible.builtin.replace:
         path: "{{ on_premise_target }}/messaging-compose/docker-compose.yml"
-        regexp: '10\.42\.10\.42:'
+        regexp: "{{ files_private_ip | regex_escape }}:"
         replace: ''
 
     - name: Creer le reseau externe attendu par la messagerie
+      become: true
       ansible.builtin.command:
         cmd: docker network create openldap_default
       register: mail_network
@@ -252,15 +274,17 @@
       failed_when: mail_network.rc != 0 and 'already exists' not in mail_network.stderr
 
     - name: Installer les certificats TLS de la messagerie
+      become: true
       ansible.builtin.command:
         cmd: ./prepare-tls-volumes.sh
         chdir: "{{ on_premise_target }}/messaging-compose"
 
     - name: Construire et demarrer la messagerie
+      become: true
       community.docker.docker_compose_v2:
         project_src: "{{ on_premise_target }}/messaging-compose"
         files:
           - docker-compose.yml
-          - compose.ovh.yaml
+          - "{{ compose_override_filename }}"
         state: present
         build: always
